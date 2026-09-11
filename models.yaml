@@ -1,0 +1,122 @@
+# Catalog of every model robo-be runs, pinned to exact HuggingFace commits.
+#
+# This is both the import manifest for `make register-catalog` and the
+# single place that answers "which models does the system use, from where,
+# at which revision". Re-running the import is idempotent: an entry whose
+# hf_revision is already registered is skipped, and aliases are only set on
+# a fresh registration (so a manual rollback of @production is never undone
+# by a catalog re-run).
+#
+# Sizes are the files actually stored after include/exclude, not the raw
+# repo size. Run `make catalog-dry-run` to see the exact file list per entry
+# before downloading anything.
+
+defaults:
+  # Weight formats nothing here loads (TF / Flax / Rust / TFLite).
+  exclude: ["*.h5", "*.msgpack", "*.ot", "*.tflite", "*.png"]
+  tags:
+    registered_by: catalog
+    project: robo-be
+
+models:
+
+  # ---------------------------------------------------------------- STT ---
+
+  - name: cohere-asr
+    repo: CohereLabs/cohere-transcribe-03-2026
+    revision: b1eacc2686a3d08ceaae5f24a88b1d519620bc09
+    alias: production
+    # GATED repo — needs HF_TOKEN with the licence accepted, else this
+    # entry fails and the rest of the catalog still proceeds.
+    description: "Cohere Transcribe 03-2026. Production ASR for both VI and EN spans (bf16, transformers>=5.4)."
+    exclude: [".eval_results/*", "assets/*", "demo/*"]
+    exclude: [".eval_results/*", "assets/*", "demo/*"]
+    tags: {framework: transformers, role: asr, lang: vi+en, consumer: robo-infer-cohere}
+    # ~4.1 GB
+
+  - name: gipformer-asr-vi
+    repo: g-group-ai-lab/gipformer-65M-rnnt
+    # PINNED BEHIND HEAD ON PURPOSE. Upstream renamed every weight file on
+    # 2026-08-21 (commit 29621ec8 "Remove legacy epoch-35-avg-6 filenames").
+    # robo_infer/models/asr_gipformer.py still requests the old names, so
+    # HEAD 404s on any machine without a pre-August cache. This revision is
+    # what production actually has. Bump it together with the loader code.
+    revision: ba00dad1f33ce28ceec5677fb5890b9ade0d9d50
+    alias: production
+    include: ["*.onnx", "tokens.txt", "bpe.model", "config.json"]  # drops the 279 MB training .pt
+    description: "Gipformer 65M RNNT (VN specialist, MIT). Routed VI spans since the 2026-04-27 change."
+    tags: {framework: sherpa-onnx, role: asr, lang: vi, license: MIT, consumer: robo-infer-gipformer}
+    # ~0.35 GB (fp32 + int8 ONNX)
+
+  - name: qwen3-asr
+    repo: Qwen/Qwen3-ASR-1.7B
+    revision: 7278e1e70fe206f11671096ffdd38061171dd6e5
+    alias: fallback
+    description: "Qwen3-ASR 1.7B (Apache-2.0). Deployed as hot fallback; better on VN-heavy short clips, slower than Cohere."
+    tags: {framework: transformers, role: asr, lang: multi, license: Apache-2.0, consumer: robo-infer-qwen}
+    # ~4.7 GB — run dry-run first; may ship duplicate .bin/.safetensors
+
+  - name: funasr-nano
+    repo: FunAudioLLM/Fun-ASR-MLT-Nano-2512
+    revision: 2c088f535108689beff7e11cdc3d792af7d56552
+    alias: candidate
+    description: "Fun-ASR MLT Nano. Code-switch mode via ROBO_STT_PROVIDER=funasr_direct; not a compose service today."
+    exclude: ["example/*", "images/*", "README_zh.md"]
+    exclude: ["example/*", "images/*", "README_zh.md"]
+    tags: {framework: funasr, role: asr, lang: multi, consumer: robo-infer-stt-lid}
+    # ~2.0 GB
+
+  # ------------------------------------------------- LID router models ---
+  # All three are baked into Dockerfile.lid at /opt/hf_cache today. Owning
+  # them here is what lets that bake step become a `resolve()` call.
+
+  - name: mms-lid-256
+    repo: facebook/mms-lid-256
+    revision: edc73fd00996e671dfc59d16436a29b12b10588a
+    alias: production
+    # Repo ships identical weights as pytorch_model.bin AND model.safetensors
+    # (3.9 GB each). Keep one.
+    include: ["model.safetensors", "*.json", "langs.txt"]
+    description: "MMS-LID-256 language classifier. Coarse VI/EN identification in the LID router."
+    tags: {framework: transformers, role: lid, consumer: robo-infer-stt-lid}
+    # ~3.9 GB
+
+  - name: voxlingua107-lid
+    repo: TalTechNLP/voxlingua107-xls-r-300m-wav2vec
+    revision: a96a1c36191f8b7a5676fec8228279318b9057a3
+    alias: production
+    description: "VoxLingua107 XLS-R-300M (SpeechBrain). Acoustic LID on spans the phoneme markers left uncertain."
+    tags: {framework: speechbrain, role: lid, consumer: robo-infer-stt-lid}
+    # SpeechBrain 1.0 moved this class; the upstream yaml still points at the
+    # old path. Same patch Dockerfile.lid applies at bake time — now it lives
+    # with the artifact instead of in a Dockerfile.
+    patches:
+      - file: inference_wav2vec.yaml
+        replace:
+          old: speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2
+          new: speechbrain.lobes.models.huggingface_transformers.wav2vec2.Wav2Vec2
+    # ~1.3 GB
+
+  - name: xlsr53-phoneme
+    repo: facebook/wav2vec2-xlsr-53-espeak-cv-ft
+    revision: 2c733782da5604684829819a5eb744c193fe9398
+    alias: production
+    description: "wav2vec2 XLSR-53 espeak phoneme recogniser. IPA stream with timestamps that drives span building."
+    tags: {framework: transformers, role: phoneme-lid, consumer: robo-infer-stt-lid}
+    # ~1.3 GB — run dry-run first
+
+  # ---------------------------------------------------------------- TTS ---
+
+  - name: voxcpm2-tts
+    repo: openbmb/VoxCPM2
+    revision: 32279effe8c19989596f05d353d1447f51d9e915
+    alias: production
+    description: "VoxCPM2 (Apache-2.0). Bilingual TTS with voice cloning from /voices/*_ref.wav. ~8 GB VRAM."
+    tags: {framework: voxcpm, role: tts, lang: vi+en, license: Apache-2.0, consumer: robo-infer-tts-voxcpm}
+    # ~5.0 GB
+
+# Not importable from HF, deliberately absent:
+#   - Demucs DNS64 denoiser: fetched by the `denoiser` pip package from a
+#     facebookresearch URL, not a Hub repo. Register it with
+#     scripts/register_pretrained.py after `pretrained.dns64()` has cached it.
+#   - ElevenLabs: a hosted API, there are no weights to own.

@@ -220,3 +220,28 @@ class ModelRegistry:
     def list_models(self) -> list[str]:
         """Names of every registered model."""
         return [rm.name for rm in self.client.search_registered_models()]
+
+    def find_version_by_tag(self, name: str, key: str, value: str) -> Optional[str]:
+        """Latest version of ``name`` whose tag ``key`` equals ``value``, else None.
+
+        Lets an importer be idempotent — "is this exact upstream commit already
+        registered?" — without creating a duplicate version on every re-run.
+        """
+        try:
+            versions = self.client.search_model_versions(f"name='{name}'")
+        except Exception:
+            return None
+
+        matches = []
+        for mv in versions:
+            tags = dict(mv.tags or {})
+            if not tags:
+                # Like aliases, tags may come back empty from search on some
+                # backends; a direct fetch is authoritative.
+                try:
+                    tags = dict(self.client.get_model_version(name, str(mv.version)).tags or {})
+                except Exception:
+                    continue
+            if tags.get(key) == value:
+                matches.append(int(mv.version))
+        return str(max(matches)) if matches else None

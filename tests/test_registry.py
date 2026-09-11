@@ -109,3 +109,14 @@ def test_list_versions_reports_aliases(reg, model_dir):
     by_version = {v["version"]: v["aliases"] for v in reg.list_versions("m")}
     assert by_version[v1] == ["production"]
     assert by_version[v2] == ["canary"]
+
+
+def test_find_version_by_tag(reg, model_dir):
+    """Importer idempotency hook: locate a version by an exact tag value."""
+    v1 = reg.register("m", model_dir, tags={"hf_revision": "abc123"})
+    v2 = reg.register("m", model_dir, tags={"hf_revision": "def456"})
+
+    assert reg.find_version_by_tag("m", "hf_revision", "abc123") == v1
+    assert reg.find_version_by_tag("m", "hf_revision", "def456") == v2
+    assert reg.find_version_by_tag("m", "hf_revision", "nope") is None
+    assert reg.find_version_by_tag("does-not-exist", "hf_revision", "abc123") is None

@@ -12,7 +12,7 @@ PYTHON := $(shell [ -x .venv/bin/python ] && echo .venv/bin/python || echo pytho
 MODEL_NAME ?= whisper-stt
 MODEL_REF  ?= production
 
-.PHONY: up down logs ps test register-example resolve-example clean
+.PHONY: up down logs ps test register-example resolve-example register-catalog catalog-dry-run clean
 
 up:  ## bring up postgres + minio + mlflow
 	docker compose up -d --build
@@ -41,6 +41,12 @@ register-example:  ## register examples/fake_model and promote it to @production
 resolve-example:  ## resolve whatever @production currently points at
 	$(PYTHON) scripts/registry_cli.py resolve \
 		--name $(MODEL_NAME) --ref $(MODEL_REF) --cache-dir ./cache
+
+catalog-dry-run:  ## resolve pins + list files for every models.yaml entry, download nothing. ONLY=name to filter
+	$(PYTHON) scripts/register_from_hf.py --catalog models.yaml --dry-run $(if $(ONLY),--only $(ONLY))
+
+register-catalog:  ## import models.yaml into the registry (idempotent). ONLY=name to filter
+	$(PYTHON) scripts/register_from_hf.py --catalog models.yaml $(if $(ONLY),--only $(ONLY))
 
 clean:  ## stop the cluster AND delete all data volumes
 	docker compose down -v

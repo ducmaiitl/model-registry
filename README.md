@@ -167,6 +167,36 @@ python scripts/registry_cli.py resolve  --name whisper-stt --ref production
 `--metric key=value` is accepted at registration but optional — pretrained models
 have no training metrics to report.
 
+## Importing from HuggingFace
+
+robo-be's workers hardcode an HF repo id and load whatever is at HEAD. That
+broke silently at least once: the gipformer repo renamed every weight file on
+2026-08-21 and the loader still asks for the old names — it only runs where a
+pre-August cache survives. `models.yaml` fixes this by pinning every model to
+an exact commit and importing it into the registry, after which HF Hub is no
+longer a runtime dependency.
+
+```bash
+make catalog-dry-run              # resolve pins, list the files each entry would store
+make register-catalog             # import everything (idempotent)
+make register-catalog ONLY=gipformer-asr-vi
+```
+
+Every imported version carries `source=huggingface`, `hf_repo`, `hf_revision`
+(full commit SHA) and `base_model` tags, so a version is always traceable to
+the exact upstream files. Re-running the catalog skips any entry whose
+`hf_revision` is already registered — and deliberately does **not** touch
+aliases on a skip, so a manual rollback of `@production` is never undone by
+a re-run. Aliases are set only on a fresh registration.
+
+Entries can `include`/`exclude` files (drop a 279 MB training checkpoint,
+keep one of two duplicate weight formats) and declare `patches` — text
+substitutions applied before registering. VoxLingua107 uses one: SpeechBrain
+1.0 moved a class and the upstream yaml still points at the old path. That
+patch used to live in `Dockerfile.lid`; now it lives with the artifact.
+
+Gated repos (Cohere) need `HF_TOKEN` set or a cached `huggingface-cli login`.
+
 ## Extending to finetuning
 
 Nothing here changes when finetuning starts. Registration already takes metrics,
@@ -219,6 +249,8 @@ Postgres headers just to run `make test` would be friction for nothing.
 |---|---|
 | `src/registry/client.py` | The facade. The only file consumers depend on. |
 | `scripts/register_pretrained.py` | Register a weights directory as a new version |
+| `scripts/register_from_hf.py` | Import HF models pinned to a commit, with patches |
+| `models.yaml` | Every model robo-be runs: repo, pinned SHA, alias, consumer |
 | `scripts/registry_cli.py` | list / versions / promote / resolve |
 | `examples/serving_fastapi.py` | Example consumer — note it never imports mlflow |
 | `docker-compose.yml` | Postgres + MinIO + bucket setup + MLflow |
