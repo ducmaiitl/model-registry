@@ -1,0 +1,8 @@
+# Client-side dev/test deps. Deliberately does NOT pull requirements.txt:
+# psycopg2 is a *server* dependency (only the MLflow container talks to
+# Postgres, and its Dockerfile installs libpq-dev to build it). The client
+# tests run against sqlite, so requiring Postgres headers just to run
+# `make test` would be friction for no benefit.
+mlflow==2.16.2
+boto3==1.34.162
+pytest>=7.0
