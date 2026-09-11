@@ -91,6 +91,19 @@ make up          # postgres + minio + mlflow, one command
 - MLflow UI → http://localhost:5000
 - MinIO console → http://localhost:9001 (default `minioadmin` / `minioadmin`)
 
+If any of those ports is already taken (another MLflow stack, for instance),
+`make up` fails with `port is already allocated`. Override the host ports in
+`.env` — container-internal ports never change, so only these need adjusting:
+
+```bash
+MLFLOW_PORT=5010
+MINIO_API_PORT=9010
+MINIO_CONSOLE_PORT=9011
+MLFLOW_TRACKING_URI=http://localhost:5010    # keep the client in sync
+```
+
+The `Makefile` loads `.env`, so the CLI targets follow whatever you set here.
+
 Register the bundled example model and resolve it back:
 
 ```bash

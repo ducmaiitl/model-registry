@@ -1,3 +1,11 @@
+# Load .env so the CLI targets talk to the same host ports as docker compose.
+# Without this, changing MLFLOW_PORT in .env would move the server but leave
+# the client still pointing at the default :5000.
+ifneq (,$(wildcard .env))
+include .env
+export
+endif
+
 # Use the local venv when present so `make test` works without activation.
 PYTHON := $(shell [ -x .venv/bin/python ] && echo .venv/bin/python || echo python3)
 
