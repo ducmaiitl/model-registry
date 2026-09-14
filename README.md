@@ -303,3 +303,4 @@ libraries just to run `make test` would be friction for nothing.
 | `docs/OBSERVABILITY.md` | Lineage, resolve timing, infra metrics, alerting |
 | `docs/superpowers/specs/2026-09-14-model-registry-design.md` | Full design: tech stack, topology, API, storage model, data flows, decisions log |
 | `docs/superpowers/plans/2026-09-14-model-registry-extensions.md` | What comes next, in phases: robo-be adoption, Tier 1 bench, observability, finetuning, hygiene |
+| `docs/superpowers/progress/2026-09-14.md` | Work log: what shipped, what was found, what was decided |
