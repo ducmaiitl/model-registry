@@ -2,6 +2,7 @@
 
 One versioned source of truth for the STT/TTS models, shared by every consumer.
 
+> System picture (all repos): [`ARCHITECTURE.md`](ARCHITECTURE.md) ·
 > Design spec: [`docs/superpowers/specs/2026-09-14-model-registry-design.md`](docs/superpowers/specs/2026-09-14-model-registry-design.md) ·
 > Roadmap: [`docs/superpowers/plans/2026-09-14-model-registry-extensions.md`](docs/superpowers/plans/2026-09-14-model-registry-extensions.md)
 
@@ -291,6 +292,7 @@ libraries just to run `make test` would be friction for nothing.
 
 | Path | What it is |
 |---|---|
+| `ARCHITECTURE.md` | The whole ML system — brain, speech paths, registry, evaluation, lifecycle gaps, open decisions |
 | `src/registry/client.py` | The facade. The only file consumers depend on. |
 | `pyproject.toml` | Installable package; consumers need only `mlflow-skinny` |
 | `.github/workflows/ci.yml` | Tests, strict catalog parse, compose validation on every push |
