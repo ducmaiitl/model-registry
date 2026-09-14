@@ -34,6 +34,29 @@ model.resolve_seconds # how long that took
 That is the entire consumer-facing surface. Everything else in this repo exists to
 make that call work.
 
+## Install
+
+```bash
+pip install "git+https://github.com/ducmaiitl/model-registry@main"
+```
+
+Consumers get `mlflow-skinny` only — no GCS/S3 libraries, no database drivers —
+because the server proxies artifacts. Set `MLFLOW_TRACKING_URI` and call
+`resolve()`.
+
+### Resolve cache
+
+`resolve()` keeps each version at `<cache>/<name>/<version>/` and only downloads
+when that slot is missing. The default cache is `~/.cache/model-registry`
+(override with `MODEL_REGISTRY_CACHE` or the `cache_dir` argument). Mount it as a
+persistent volume in containers, or every restart re-downloads the weights.
+
+A slot counts as present only if it carries a `.registry-complete` marker, which
+is written after the last file lands. A download that dies half-way leaves no
+marker and is thrown away on the next resolve — a truncated checkpoint that
+still "loads" is the failure this guards against. `ResolvedModel.from_cache`
+tells you which path a call took, so `resolve_seconds` can be read correctly.
+
 ## Architecture
 
 ```
@@ -147,6 +170,11 @@ python scripts/registry_cli.py promote --name whisper-stt --version 2 --alias pr
 Versions are immutable; aliases move. No consumer restarts into a new model
 because its code changed — it restarts into whatever the alias points at now.
 
+Every move is recorded, because an alias move *is* a deploy: `promote()` returns
+`{alias, version, previous_version, promoted_at, promoted_by}` and stores it on
+the model, readable later with `reg.alias_info("whisper-stt", "production")`.
+`promoted_by` is `$REGISTRY_ACTOR` if set (CI should set it), else the OS user.
+
 Pinning still works when a consumer needs a specific version (benchmarks, mostly):
 
 ```python
@@ -247,10 +275,10 @@ pinning works, and that versions always come back as strings.
 For a dev environment:
 
 ```bash
-python3.11 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
+python3.11 -m venv .venv && .venv/bin/pip install -e ".[dev]"
 ```
 
-`requirements-dev.txt` intentionally omits `psycopg2` and `google-cloud-storage`:
+The `[dev]` extra intentionally omits `psycopg2` and `google-cloud-storage`:
 those are *server* dependencies — only the MLflow container talks to Postgres and
 GCS, and it installs them inside its own image. Clients talk to the server, which
 proxies artifacts, and the tests use sqlite, so requiring Postgres headers or GCP
@@ -261,6 +289,8 @@ libraries just to run `make test` would be friction for nothing.
 | Path | What it is |
 |---|---|
 | `src/registry/client.py` | The facade. The only file consumers depend on. |
+| `pyproject.toml` | Installable package; consumers need only `mlflow-skinny` |
+| `.github/workflows/ci.yml` | Tests, strict catalog parse, compose validation on every push |
 | `scripts/register_pretrained.py` | Register a weights directory as a new version |
 | `scripts/register_from_hf.py` | Import HF models pinned to a commit, with patches |
 | `models.yaml` | Every model robo-be runs: repo, pinned SHA, alias, consumer |

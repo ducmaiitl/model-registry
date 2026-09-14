@@ -1,9 +1,5 @@
-# Client-side dev/test deps. Deliberately does NOT pull requirements.txt:
-# psycopg2 and google-cloud-storage are *server* dependencies — the MLflow
-# container talks to Postgres and GCS; clients only talk to the server, which
-# proxies artifacts. The client tests run against sqlite, so requiring
-# Postgres headers just to run `make test` would be friction for no benefit.
-mlflow==2.16.2
-pytest>=7.0
-# scripts/register_from_hf.py — pulls pinned snapshots from HF Hub into the registry
-huggingface_hub>=0.24
+# Dev/test environment. Installs the package editable plus the [dev] extras
+# (full mlflow for the sqlite test backend, pytest, huggingface_hub).
+# Server-side deps (psycopg2, google-cloud-storage) live in requirements.txt
+# and only inside the MLflow image.
+-e .[dev]

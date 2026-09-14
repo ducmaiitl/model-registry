@@ -43,7 +43,7 @@ logger.info("model_resolve", extra={
 
 Emit it as a histogram from each consumer. What the shape tells you:
 
-- **First resolve is slow, later ones fast** — normal; the download is cached.
+- **First resolve is slow, later ones fast** — normal; check `from_cache` on the result.
 - **Every resolve is slow** — the cache directory is not persisting between
   restarts (common in containers with no mounted volume).
 - **Sudden jump across all consumers** — look at GCS request errors, not the consumers.
@@ -87,14 +87,23 @@ event, so it belongs in whatever channel tracks releases.
 
 ## 5. Audit: who deployed what
 
-MLflow does not record who moved an alias, so record it yourself at registration
-time via tags (`registered_by`, `git_commit`). Combined with the version's
-`created` timestamp and your release channel notifications, that reconstructs the
-deploy history.
+MLflow itself does not record who moved an alias, so the facade does. Every
+`promote()` writes `alias.<alias>.{version,previous_version,promoted_at,promoted_by}`
+on the registered model and `promoted.<alias>.{at,by}` on the version:
 
-If you need stronger guarantees, put alias changes behind CI rather than letting
-people run `promote` from laptops — then the CI run is the audit log, and it can
-stamp `git_commit` automatically.
+```python
+reg.alias_info("whisper-stt", "production")
+# {'alias': 'production', 'version': '3', 'previous_version': '2',
+#  'promoted_at': '2026-09-14T09:12:41+00:00', 'promoted_by': 'ci'}
+```
+
+`promoted_by` comes from `$REGISTRY_ACTOR`, falling back to the OS user — set it
+explicitly in CI so the record names the pipeline, not `runner`. The model-level
+tags hold the *latest* move per alias; the per-version tags give you when each
+version last held it, which together reconstruct the deploy history.
+
+For stronger guarantees put alias changes behind CI rather than laptops: the CI
+run becomes the audit log and can stamp `git_commit` on the version as well.
 
 ## 6. Tags to standardize
 

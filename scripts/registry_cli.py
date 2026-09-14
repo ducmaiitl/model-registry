@@ -47,8 +47,10 @@ def main():
         print(json.dumps(reg.list_versions(args.name), indent=2))
 
     elif args.cmd == "promote":
-        reg.promote(args.name, args.version, args.alias)
-        print(f"{args.name} v{args.version} -> @{args.alias.lower()}")
+        rec = reg.promote(args.name, args.version, args.alias)
+        prev = f"v{rec['previous_version']}" if rec["previous_version"] else "none"
+        print(f"{args.name} @{rec['alias']}: {prev} -> v{rec['version']}  "
+              f"(by {rec['promoted_by']} at {rec['promoted_at']})")
 
     elif args.cmd == "resolve":
         r = reg.resolve(args.name, args.ref, cache_dir=args.cache_dir)
@@ -59,6 +61,7 @@ def main():
             "local_path": str(r.local_path),
             "metrics": r.metrics,
             "resolve_seconds": round(r.resolve_seconds, 4),
+            "from_cache": r.from_cache,
         }, indent=2))
 
 

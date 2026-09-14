@@ -11,3 +11,6 @@ cache/
 
 # Claude Code machine-local settings (shared settings.json is fine to commit)
 .claude/settings.local.json
+
+# setuptools build metadata from `pip install -e .`
+*.egg-info/

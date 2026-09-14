@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "robo-model-registry"
+version = "0.1.0"
+description = "Facade over MLflow: versioned STT/TTS models with movable aliases. Consumers call resolve() and get weights on disk."
+readme = "README.md"
+requires-python = ">=3.11"
+# Consumers only talk to the MLflow server, which proxies artifacts, so the
+# skinny client is enough — no GCS/S3 libraries, no sqlalchemy.
+dependencies = ["mlflow-skinny>=2.16,<3"]
+
+[project.optional-dependencies]
+# Tests run against a local sqlite backend, which needs the full mlflow.
+dev = ["mlflow>=2.16,<3", "pytest>=7.0", "huggingface_hub>=0.24"]
+# scripts/register_from_hf.py
+import = ["huggingface_hub>=0.24"]
+
+[project.urls]
+Repository = "https://github.com/ducmaiitl/model-registry"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
