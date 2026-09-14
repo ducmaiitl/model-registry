@@ -1,7 +1,7 @@
 """Facade over MLflow for the model registry.
 
 Consumers import ``ModelRegistry`` from this package and nothing else. They never
-import mlflow, never talk to MinIO or Postgres, and never learn which concrete
+import mlflow, never talk to GCS or Postgres, and never learn which concrete
 version is serving traffic. That indirection is the whole point: the model
 lifecycle moves independently of the code that consumes models.
 
@@ -87,12 +87,6 @@ class ModelRegistry:
         if not source.exists():
             raise FileNotFoundError(f"source_dir does not exist: {source}")
 
-        try:
-            self.client.create_registered_model(name)
-        except Exception:
-            # Already registered; new versions just get appended to it.
-            pass
-
         run_tags = {"registry.flavor": flavor, "registry.model_name": name}
         with self._mlflow.start_run(run_name=f"register-{name}", tags=run_tags) as run:
             run_id = run.info.run_id
@@ -101,6 +95,15 @@ class ModelRegistry:
             if metrics:
                 self._mlflow.log_metrics(metrics)
             self._mlflow.log_artifacts(str(source), artifact_path=_ARTIFACT_PATH)
+
+        # Only now, after the upload succeeded, touch the registry. Doing this
+        # first (as an earlier version did) meant an interrupted multi-GB
+        # upload left an empty registered model behind with no versions.
+        try:
+            self.client.create_registered_model(name)
+        except Exception:
+            # Already registered; new versions just get appended to it.
+            pass
 
         mv = self.client.create_model_version(
             name=name,

@@ -1,7 +1,7 @@
 """Unit tests for the pure parts of scripts/register_from_hf.py.
 
 No network: the download path is exercised end-to-end via `--dry-run` and
-real runs against MinIO, not here. These cover the logic that decides
+real runs against the live server, not here. These cover the logic that decides
 *what* gets registered — file selection, patching, and catalog merging —
 which is where a silent mistake would ship a broken model version.
 """
@@ -128,3 +128,18 @@ def test_strip_download_metadata_noop_when_absent(tmp_path):
     (tmp_path / "model.bin").write_bytes(b"w")
     rfh.strip_download_metadata(tmp_path)  # must not raise
     assert (tmp_path / "model.bin").exists()
+
+
+def test_load_catalog_rejects_duplicate_keys(tmp_path):
+    """A duplicated key must fail loudly — PyYAML's default silently keeps the
+    last value, which is how models.yaml once shipped two `exclude:` lines."""
+    cat = tmp_path / "models.yaml"
+    cat.write_text(textwrap.dedent("""
+        models:
+          - name: a
+            repo: org/a
+            exclude: ["*.bin"]
+            exclude: ["*.h5"]
+    """))
+    with pytest.raises(rfh.DuplicateKeyError, match="exclude"):
+        rfh.load_catalog(cat)

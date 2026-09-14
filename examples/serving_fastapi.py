@@ -1,7 +1,7 @@
 """Example consumer: a serving process that pulls its model from the registry.
 
 The point of this file is what it does NOT contain. There is no `import mlflow`,
-no MinIO bucket name, no Postgres connection string, and no hardcoded version
+no GCS bucket name, no Postgres connection string, and no hardcoded version
 number. It asks for "whisper-stt at @production" and gets back a path.
 
 That means shipping a new model is an alias repoint in the registry — this

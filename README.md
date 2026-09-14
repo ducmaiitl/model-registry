@@ -14,7 +14,7 @@ The core idea is **decoupling**. A consumer asks:
 > give me `whisper-stt` at `@production`
 
 and gets back a path to weights already on disk. It does not know that MLflow,
-MinIO, or Postgres exist, and it does not know which concrete version it just got.
+GCS, or Postgres exist, and it does not know which concrete version it just got.
 That means shipping a new model is a registry operation, not a code change in
 every consumer.
 
@@ -53,7 +53,7 @@ make that call work.
                         └────┬────────┬────┘
                              │        │
                 ┌────────────▼──┐  ┌──▼──────────────┐
-                │ PostgreSQL 16 │  │ MinIO  :9000    │
+                │ PostgreSQL 16 │  │ GCS bucket      │
                 │ metadata:     │  │ artifacts:      │
                 │ models, vers, │  │ the actual      │
                 │ aliases, tags │  │ weight files    │
@@ -69,38 +69,50 @@ which belongs in object storage, not in a database or Git.
 |---|---|---|
 | MLflow | 2.16.2 | tracking server + model registry |
 | PostgreSQL | 16 | backend store (metadata) |
-| MinIO | latest | artifact store (S3-compatible) |
-| boto3 | 1.34.162 | MLflow ↔ MinIO |
+| Google Cloud Storage | — | artifact store (weight files) |
+| google-cloud-storage | 2.18.2 | MLflow ↔ GCS |
 | psycopg2 | 2.9.9 | MLflow ↔ Postgres |
 | Docker Compose | — | brings the cluster up |
 | pytest | ≥7 | tests the client against sqlite, no docker |
 
 Python 3.11.
 
-MinIO is used **because it is S3-compatible**. Self-hosting now matches the
-move off Google Cloud, and switching to real S3/GCS later is an endpoint and
-credentials change — no code change, no vendor lock-in.
+Artifacts live in a **GCS bucket**; the registry itself runs on a GCP VM. The
+artifact store is deliberately a configuration seam, not a code dependency: this
+repo started on self-hosted MinIO and moved to GCS by changing one compose flag
+(`--artifacts-destination`) and one pip package — `ModelRegistry` and every
+consumer were untouched, because the server proxies artifacts. Moving again
+(S3, or back to MinIO for a fully self-hosted deployment) is the same one-flag change.
 
 ## Quick start
 
 ```bash
 cp .env.example .env
-make up          # postgres + minio + mlflow, one command
+make up          # postgres + mlflow, one command
 ```
 
 - MLflow UI → http://localhost:5000
-- MinIO console → http://localhost:9001 (default `minioadmin` / `minioadmin`)
+- Artifacts land in `gs://$GCS_BUCKET` — create it once before the first `make up`:
 
-If any of those ports is already taken (another MLflow stack, for instance),
-`make up` fails with `port is already allocated`. Override the host ports in
-`.env` — container-internal ports never change, so only these need adjusting:
+  ```bash
+  gcloud storage buckets create gs://$GCS_BUCKET --location=asia-southeast1 --uniform-bucket-level-access
+  ```
+
+  On a GCE VM the attached service account needs `roles/storage.objectAdmin` on the
+  bucket and nothing else is required. Off-GCP, set `GOOGLE_APPLICATION_CREDENTIALS`
+  in `.env` to a key file and uncomment the matching `volumes:` line in
+  `docker-compose.yml`.
+
+If port 5000 is already taken, `make up` fails with `port is already allocated`.
+Override the host port in `.env` — the container-internal port never changes:
 
 ```bash
 MLFLOW_PORT=5010
-MINIO_API_PORT=9010
-MINIO_CONSOLE_PORT=9011
 MLFLOW_TRACKING_URI=http://localhost:5010    # keep the client in sync
 ```
+
+**MLflow has no authentication.** Never give this port a public IP; firewall it
+to known consumers or put an authenticating reverse proxy in front.
 
 The `Makefile` loads `.env`, so the CLI targets follow whatever you set here.
 
@@ -238,10 +250,11 @@ For a dev environment:
 python3.11 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
 ```
 
-`requirements-dev.txt` intentionally omits `psycopg2`: only the MLflow *server*
-talks to Postgres, and it installs the driver inside its own image (which has the
-`libpq-dev` headers needed to build it). Client tests use sqlite, so requiring
-Postgres headers just to run `make test` would be friction for nothing.
+`requirements-dev.txt` intentionally omits `psycopg2` and `google-cloud-storage`:
+those are *server* dependencies — only the MLflow container talks to Postgres and
+GCS, and it installs them inside its own image. Clients talk to the server, which
+proxies artifacts, and the tests use sqlite, so requiring Postgres headers or GCP
+libraries just to run `make test` would be friction for nothing.
 
 ## Repo layout
 
@@ -253,5 +266,5 @@ Postgres headers just to run `make test` would be friction for nothing.
 | `models.yaml` | Every model robo-be runs: repo, pinned SHA, alias, consumer |
 | `scripts/registry_cli.py` | list / versions / promote / resolve |
 | `examples/serving_fastapi.py` | Example consumer — note it never imports mlflow |
-| `docker-compose.yml` | Postgres + MinIO + bucket setup + MLflow |
+| `docker-compose.yml` | Postgres + MLflow (artifacts in GCS) |
 | `docs/OBSERVABILITY.md` | Lineage, resolve timing, infra metrics, alerting |

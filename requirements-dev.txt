@@ -1,10 +1,9 @@
 # Client-side dev/test deps. Deliberately does NOT pull requirements.txt:
-# psycopg2 is a *server* dependency (only the MLflow container talks to
-# Postgres, and its Dockerfile installs libpq-dev to build it). The client
-# tests run against sqlite, so requiring Postgres headers just to run
-# `make test` would be friction for no benefit.
+# psycopg2 and google-cloud-storage are *server* dependencies — the MLflow
+# container talks to Postgres and GCS; clients only talk to the server, which
+# proxies artifacts. The client tests run against sqlite, so requiring
+# Postgres headers just to run `make test` would be friction for no benefit.
 mlflow==2.16.2
-boto3==1.34.162
 pytest>=7.0
 # scripts/register_from_hf.py — pulls pinned snapshots from HF Hub into the registry
 huggingface_hub>=0.24

@@ -14,11 +14,11 @@ MODEL_REF  ?= production
 
 .PHONY: up down logs ps test register-example resolve-example register-catalog catalog-dry-run clean
 
-up:  ## bring up postgres + minio + mlflow
+up:  ## bring up postgres + mlflow
 	docker compose up -d --build
 
 down:  ## stop the cluster (volumes preserved)
-	docker compose down
+	docker compose down --remove-orphans
 
 logs:  ## follow the mlflow server log
 	docker compose logs -f mlflow
@@ -49,5 +49,5 @@ register-catalog:  ## import models.yaml into the registry (idempotent). ONLY=na
 	$(PYTHON) scripts/register_from_hf.py --catalog models.yaml $(if $(ONLY),--only $(ONLY))
 
 clean:  ## stop the cluster AND delete all data volumes
-	docker compose down -v
+	docker compose down -v --remove-orphans
 	rm -rf cache mlruns .pytest_cache

@@ -10,7 +10,7 @@ Every version is traceable back to the run that produced it, and every run
 records its params, metrics, and tags. The chain is:
 
 ```
-alias (@production) -> model version -> run -> params / metrics / tags -> artifacts in MinIO
+alias (@production) -> model version -> run -> params / metrics / tags -> artifacts in GCS
 ```
 
 Read it from the CLI:
@@ -46,18 +46,22 @@ Emit it as a histogram from each consumer. What the shape tells you:
 - **First resolve is slow, later ones fast** — normal; the download is cached.
 - **Every resolve is slow** — the cache directory is not persisting between
   restarts (common in containers with no mounted volume).
-- **Sudden jump across all consumers** — look at MinIO, not the consumers.
+- **Sudden jump across all consumers** — look at GCS request errors, not the consumers.
 
 ## 3. Infra metrics
 
-**MinIO** exposes Prometheus metrics without a sidecar:
+**GCS** reports into Cloud Monitoring with nothing to install. The metrics that
+matter for a weights bucket:
 
-```
-http://localhost:9000/minio/v2/metrics/cluster
-```
+- `storage.googleapis.com/storage/total_bytes` — bucket size; weight files grow it fast
+- `storage.googleapis.com/api/request_count` filtered by `response_code` — 403s mean
+  the server's service account lost bucket access; 5xx is a GCS incident
+- `storage.googleapis.com/network/sent_bytes_count` — egress, i.e. resolve traffic
+  and cost. A consumer re-downloading on every restart shows up here first.
 
-Watch `minio_cluster_capacity_usable_free_bytes` (weight files fill disks fast),
-plus bucket object counts and request error rates.
+Durability and availability are GCS's problem, not yours — there is no disk to
+fill and no storage daemon to keep alive. What remains yours is permissions
+(the 403 signal above) and cost (egress).
 
 **Postgres** needs `postgres_exporter` alongside it to expose metrics. The
 registry's own load is light — the interesting numbers are connection count,
@@ -71,8 +75,8 @@ liveness and put request-level monitoring in a reverse proxy if you need it.
 | Signal | Condition | Why it matters |
 |---|---|---|
 | MLflow `/health` | fails 2 checks in a row | No consumer can resolve; new deploys are blocked |
-| MinIO free capacity | < 20% | Registration starts failing once it fills |
-| MinIO health/live | fails | Metadata still resolves, but weights will not download |
+| GCS `request_count` 403s | any | Server lost bucket permission — registration and resolve both fail |
+| GCS egress | > 3x weekly baseline | A consumer is re-downloading instead of caching |
 | Postgres `pg_isready` | fails | Total registry outage — MLflow cannot serve anything |
 | `resolve_seconds` p95 | > 30s, or 3x its baseline | Consumer startup and autoscaling get slow |
 | Resolve error rate | any sustained non-zero | Usually a missing alias or a deleted version |

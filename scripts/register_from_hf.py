@@ -12,14 +12,14 @@ stops being a runtime dependency.
 
     # One model
     python scripts/register_from_hf.py \\
-        --repo g-group-ai-lab/gipformer-65M-rnnt --name gipformer-vi \\
+        --repo g-group-ai-lab/gipformer-65M-rnnt --name gipformer-asr-vi \\
         --revision ba00dad1 --alias production \\
         --include "*.onnx" --include tokens.txt
 
     # The whole catalog. Idempotent: a version whose hf_revision is already
     # registered is skipped, so re-running is safe.
     python scripts/register_from_hf.py --catalog models.yaml
-    python scripts/register_from_hf.py --catalog models.yaml --only gipformer-vi --dry-run
+    python scripts/register_from_hf.py --catalog models.yaml --only gipformer-asr-vi --dry-run
 
 Gated repos (Cohere) need HF_TOKEN in the environment or a cached
 `huggingface-cli login`.
@@ -82,11 +82,37 @@ def strip_download_metadata(model_dir: Path) -> None:
     shutil.rmtree(model_dir / ".cache", ignore_errors=True)
 
 
-def load_catalog(path: Path) -> list[dict]:
-    """Parse models.yaml, folding `defaults` into each entry."""
+class DuplicateKeyError(ValueError):
+    pass
+
+
+def _strict_yaml_load(text: str):
+    """yaml.safe_load, but a repeated mapping key is an error instead of
+    silently keeping the last value. The catalog is hand-edited; a duplicated
+    `exclude:` would otherwise change what gets stored with no warning."""
     import yaml
 
-    doc = yaml.safe_load(path.read_text()) or {}
+    class Loader(yaml.SafeLoader):
+        pass
+
+    def construct_mapping(loader, node, deep=False):
+        seen = set()
+        for key_node, _ in node.value:
+            key = loader.construct_object(key_node, deep=deep)
+            if key in seen:
+                raise DuplicateKeyError(
+                    f"duplicate key {key!r} at line {key_node.start_mark.line + 1}"
+                )
+            seen.add(key)
+        return yaml.SafeLoader.construct_mapping(loader, node, deep)
+
+    Loader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, construct_mapping)
+    return yaml.load(text, Loader=Loader)
+
+
+def load_catalog(path: Path) -> list[dict]:
+    """Parse models.yaml, folding `defaults` into each entry."""
+    doc = _strict_yaml_load(path.read_text()) or {}
     defaults = doc.get("defaults") or {}
     specs = []
     for entry in doc.get("models") or []:

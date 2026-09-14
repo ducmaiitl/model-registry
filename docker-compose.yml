@@ -15,46 +15,9 @@ services:
       retries: 10
     restart: unless-stopped
 
-  minio:
-    image: minio/minio:latest
-    container_name: registry-minio
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: ${MINIO_USER:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${MINIO_PASSWORD:-minioadmin}
-    ports:
-      # Host ports are overridable so this stack can coexist with another
-      # MLflow/MinIO deployment on the same machine. Container ports are fixed.
-      - "${MINIO_API_PORT:-9000}:9000"       # S3 API
-      - "${MINIO_CONSOLE_PORT:-9001}:9001"   # web console
-    volumes:
-      - miniodata:/data
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:9000/minio/health/live || exit 1"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-    restart: unless-stopped
-
-  # One-shot: creates the artifact bucket, then exits. Must wait for minio to be
-  # healthy or `mc mb` races the server startup and fails.
-  minio-setup:
-    image: minio/mc:latest
-    container_name: registry-minio-setup
-    depends_on:
-      minio:
-        condition: service_healthy
-    environment:
-      MINIO_USER: ${MINIO_USER:-minioadmin}
-      MINIO_PASSWORD: ${MINIO_PASSWORD:-minioadmin}
-      MLFLOW_BUCKET: ${MLFLOW_BUCKET:-mlflow-artifacts}
-    entrypoint: >
-      /bin/sh -c "
-      mc alias set local http://minio:9000 $${MINIO_USER} $${MINIO_PASSWORD} &&
-      mc mb -p local/$${MLFLOW_BUCKET} &&
-      echo 'bucket ready: '$${MLFLOW_BUCKET}
-      "
-
+  # Artifacts (the weight files) live in a GCS bucket; only metadata is here.
+  # --serve-artifacts makes the server proxy every upload/download, so clients
+  # need nothing but MLFLOW_TRACKING_URI — no GCS credentials on consumers.
   mlflow:
     build:
       context: .
@@ -63,23 +26,32 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      minio:
-        condition: service_healthy
     environment:
-      MLFLOW_S3_ENDPOINT_URL: http://minio:9000
-      AWS_ACCESS_KEY_ID: ${MINIO_USER:-minioadmin}
-      AWS_SECRET_ACCESS_KEY: ${MINIO_PASSWORD:-minioadmin}
+      GOOGLE_CLOUD_PROJECT: ${GOOGLE_CLOUD_PROJECT}
+      # On a GCE VM the attached service account is used automatically (ADC)
+      # and this stays empty. Off-GCP, mount a key file or your gcloud ADC
+      # into the container and point this at it — see README.
+      GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS:-}
+    # volumes:
+    #   - ${GOOGLE_APPLICATION_CREDENTIALS}:${GOOGLE_APPLICATION_CREDENTIALS}:ro
     command: >
       mlflow server
       --host 0.0.0.0
       --port 5000
       --backend-store-uri postgresql://${PG_USER:-mlflow}:${PG_PASSWORD:-mlflow}@postgres:5432/${PG_DB:-mlflow}
-      --artifacts-destination s3://${MLFLOW_BUCKET:-mlflow-artifacts}
+      --artifacts-destination gs://${GCS_BUCKET:?set GCS_BUCKET in .env — the bucket that holds model weights}
       --serve-artifacts
     ports:
+      # MLflow has NO authentication. Never expose this port publicly —
+      # firewall it or put an authenticating reverse proxy in front.
       - "${MLFLOW_PORT:-5000}:5000"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:5000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
     restart: unless-stopped
 
 volumes:
   pgdata:
-  miniodata:

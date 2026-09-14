@@ -120,3 +120,16 @@ def test_find_version_by_tag(reg, model_dir):
     assert reg.find_version_by_tag("m", "hf_revision", "def456") == v2
     assert reg.find_version_by_tag("m", "hf_revision", "nope") is None
     assert reg.find_version_by_tag("does-not-exist", "hf_revision", "abc123") is None
+
+
+def test_failed_upload_leaves_no_model_shell(reg, model_dir):
+    """If artifact upload dies, nothing must appear in the registry. Observed
+    for real: two killed imports left empty registered models behind."""
+    def boom(*args, **kwargs):
+        raise OSError("simulated upload failure")
+
+    reg._mlflow.log_artifacts = boom
+    with pytest.raises(OSError):
+        reg.register("never-registered", model_dir)
+
+    assert "never-registered" not in reg.list_models()

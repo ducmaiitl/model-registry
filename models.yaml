@@ -30,7 +30,6 @@ models:
     # entry fails and the rest of the catalog still proceeds.
     description: "Cohere Transcribe 03-2026. Production ASR for both VI and EN spans (bf16, transformers>=5.4)."
     exclude: [".eval_results/*", "assets/*", "demo/*"]
-    exclude: [".eval_results/*", "assets/*", "demo/*"]
     tags: {framework: transformers, role: asr, lang: vi+en, consumer: robo-infer-cohere}
     # ~4.1 GB
 
@@ -54,14 +53,13 @@ models:
     alias: fallback
     description: "Qwen3-ASR 1.7B (Apache-2.0). Deployed as hot fallback; better on VN-heavy short clips, slower than Cohere."
     tags: {framework: transformers, role: asr, lang: multi, license: Apache-2.0, consumer: robo-infer-qwen}
-    # ~4.7 GB — run dry-run first; may ship duplicate .bin/.safetensors
+    # ~4.7 GB (safetensors only)
 
   - name: funasr-nano
     repo: FunAudioLLM/Fun-ASR-MLT-Nano-2512
     revision: 2c088f535108689beff7e11cdc3d792af7d56552
     alias: candidate
     description: "Fun-ASR MLT Nano. Code-switch mode via ROBO_STT_PROVIDER=funasr_direct; not a compose service today."
-    exclude: ["example/*", "images/*", "README_zh.md"]
     exclude: ["example/*", "images/*", "README_zh.md"]
     tags: {framework: funasr, role: asr, lang: multi, consumer: robo-infer-stt-lid}
     # ~2.0 GB
@@ -103,7 +101,7 @@ models:
     alias: production
     description: "wav2vec2 XLSR-53 espeak phoneme recogniser. IPA stream with timestamps that drives span building."
     tags: {framework: transformers, role: phoneme-lid, consumer: robo-infer-stt-lid}
-    # ~1.3 GB — run dry-run first
+    # ~1.3 GB (single pytorch_model.bin)
 
   # ---------------------------------------------------------------- TTS ---
 
