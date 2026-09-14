@@ -2,6 +2,9 @@
 
 One versioned source of truth for the STT/TTS models, shared by every consumer.
 
+> Design spec: [`docs/superpowers/specs/2026-09-14-model-registry-design.md`](docs/superpowers/specs/2026-09-14-model-registry-design.md) ·
+> Roadmap: [`docs/superpowers/plans/2026-09-14-model-registry-extensions.md`](docs/superpowers/plans/2026-09-14-model-registry-extensions.md)
+
 ## Why this exists
 
 Without a registry, every consumer keeps its own copy of the model files. Changing
@@ -298,3 +301,5 @@ libraries just to run `make test` would be friction for nothing.
 | `examples/serving_fastapi.py` | Example consumer — note it never imports mlflow |
 | `docker-compose.yml` | Postgres + MLflow (artifacts in GCS) |
 | `docs/OBSERVABILITY.md` | Lineage, resolve timing, infra metrics, alerting |
+| `docs/superpowers/specs/2026-09-14-model-registry-design.md` | Full design: tech stack, topology, API, storage model, data flows, decisions log |
+| `docs/superpowers/plans/2026-09-14-model-registry-extensions.md` | What comes next, in phases: robo-be adoption, Tier 1 bench, observability, finetuning, hygiene |
