@@ -78,7 +78,18 @@ data are stored. *(Ch. 4, 5)*
 **Healthcheck** — a command Docker runs to decide whether a container is
 *ready*, as opposed to merely running. *(Ch. 13)*
 
-**MLflow** — the open-source tool underneath this registry. Not ours. *(Ch. 1)*
+**MLflow** — the open-source tool underneath this registry. Not ours. *(Ch. 1,
+App. B)*
+
+**Backend store** — where MLflow keeps metadata: a database. Ours is Postgres.
+*(App. B)*
+
+**Artifact store** — where MLflow keeps files. Ours is a GCS bucket. *(App. B)*
+
+**Experiment** — MLflow's folder for runs. We use the default, id `0`. *(App. B)*
+
+**Flavor / pyfunc** — MLflow's model packaging format, which this project
+deliberately does not use. *(App. B)*
 
 **mlflow-skinny** — the client-only MLflow package; what consumers install.
 *(Ch. 13)*

@@ -24,6 +24,10 @@ makes sense only once Part II has landed.
 numbers (`client.py:198`). Open the real file and follow along — the book is a
 guide to the code, not a replacement for it.
 
+**New to MLflow?** Read [Appendix B](B-mlflow.md) before Chapter 3. The main
+chapters explain *our* code and mention MLflow only where the two touch; the
+appendix explains MLflow itself in about twenty minutes.
+
 **Skip Part IV if you are impatient.** Chapters 12–13 are tests and
 infrastructure. They matter, but you can understand the system without them.
 
@@ -72,6 +76,7 @@ A chapter takes 5–15 minutes. The whole book is about two hours.
 | 15 | [Exercises](15-exercises.md) | Safe experiments that teach fastest |
 | 16 | [Glossary](16-glossary.md) | Every term, one line each |
 | A | [Python concepts used here](A-python-concepts.md) | Language features, explained in context |
+| B | [MLflow in twenty minutes](B-mlflow.md) | The tool underneath: architecture, data model, the UI, what we skip |
 
 ## Conventions
 

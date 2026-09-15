@@ -1,6 +1,6 @@
 # Appendix A — Python concepts used here
 
-[← Previous](16-glossary.md) · [Contents](README.md)
+[← Previous](16-glossary.md) · [Contents](README.md) · [Appendix B →](B-mlflow.md)
 
 ---
 
@@ -316,4 +316,4 @@ produce a negative duration when the system clock adjusts.
 
 ---
 
-[← Previous](16-glossary.md) · [Contents](README.md)
+[← Previous](16-glossary.md) · [Contents](README.md) · [Appendix B →](B-mlflow.md)

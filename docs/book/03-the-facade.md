@@ -6,6 +6,9 @@
 
 **File:** `src/registry/client.py`, lines 1–79.
 
+> **If MLflow is new to you, read [Appendix B](B-mlflow.md) first.** This
+> chapter explains the code that wraps MLflow; the appendix explains MLflow.
+
 This chapter covers the top of the file: what it declares before any real work
 happens. Four short sections — the docstring, the constants, the `ResolvedModel`
 container, and the constructor.
